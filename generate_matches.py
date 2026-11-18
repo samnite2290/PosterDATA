@@ -15,7 +15,7 @@ FANCEODE_API = os.getenv("FANCEODE_API")
 TAPMAD_API = os.getenv("TAPMAD_API")
 
 DEFAULT_IMAGE = "https://raw.githubusercontent.com/samnite2290/img/gh-pages/HOME/HOME-LIVE-EVENT.png"
-SUBTITLE_SUFFIX = " | Select 🅻🅸🅅🅴 🆂🅿🅾🆁🆃🆂 Button, Share Our Apps With Your Friends & Family."
+SUBTITLE_SUFFIX = " | Select 🅻🅸🆅🅴 🆂🅿🅾🆁🆃🆂 Button, Share Our Apps With Your Friends & Family."
 
 # পোস্টার PosterDATA এর main ব্রাঞ্চে থাকবে
 GITHUB_USER = "samnite2290"
@@ -33,8 +33,8 @@ FOOTBALL_LEAGUES = {
     "champions league": ("🏆 UEFA ⚽ CHAMPIONS LEAGUE 2026/27",  "SonyLiv"),
     "europa league":    ("🏆 UEFA ⚽ EUROPA LEAGUE 2026/27",     "SonyLiv"),
     "nations league":   ("🏆 UEFA ⚽ NATIONS LEAGUE 2026/27",    "SonyLiv"),
-    "fifa world cup":   ("🏆 FIFA ⚽ WORLD CUP 2026",            "T Sports"),
-    "friendly":         ("🏆 Friendly Match ⚽ 2026",            "T Sports"),
+    "fifa world cup":   ("🏆 FIFA ⚽ WORLD CUP 2026",            "Sports"),
+    "friendly":         ("🏆 Friendly Match ⚽ 2026",            "Sports"),
 }
 
 CRICKET_LEAGUES = {
@@ -47,7 +47,7 @@ CRICKET_LEAGUES = {
     "ipl":       ("🏏 INDIAN PREMIER LEAGUE 2026",     "SonyLiv"),
     "bbl":       ("🏏 BIG BASH LEAGUE 2026",           "SonyLiv"),
     "psl":       ("🏏 PSL 2026",                       "Tapmad"),
-    "bpl":       ("🏏 BPL 2026",                       "T Sports"),
+    "bpl":       ("🏏 BPL 2026",                       "Sports"),
     "nepal":     ("🏏 NEPAL PREMIER LEAGUE 2026",      "Fancode"),
 }
 
