@@ -17,7 +17,7 @@ TAPMAD_API = os.getenv("TAPMAD_API")
 DEFAULT_IMAGE = "https://raw.githubusercontent.com/samnite2290/img/gh-pages/HOME/HOME-LIVE-EVENT.png"
 SUBTITLE_SUFFIX = " | Select 🅻🅸🆅🅴 🆂🅿🅾🆁🆃🆂 Button, Share Our Apps With Your Friends & Family."
 
-# পোস্টার PosterDATA এর main ব্রাঞ্চে থাকবে
+ 
 GITHUB_USER = "samnite2290"
 GITHUB_REPO = "PosterDATA" 
 GITHUB_BRANCH = "main"
@@ -164,7 +164,7 @@ def get_poster_link(t1, t2, sub_name, fmt, sport, start):
         
         create_poster(team1=t1, team2=t2, series_name=sub_name, match_type=match_type, output_filename=filename, sport_type=sport_type)
         
-        # লিংক PosterDATA এর main ব্রাঞ্চ থেকে আসবে
+        
         raw_link = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/posters/{filename}"
         return raw_link
     except Exception as e:
