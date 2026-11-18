@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
-# --- কনফিগারেশন ---
+ 
 POSTER_WIDTH = 1200
 POSTER_HEIGHT = 600
 FONT_BOLD_PATH = "assets/fonts/Oswald-Bold.ttf"
@@ -13,7 +13,7 @@ FONT_REGULAR_PATH = "assets/fonts/Oswald-Regular.ttf"
 OUTPUT_DIR = "posters"
 LOGO_BASE_DIR = "assets/Logo"
 DEFAULT_LOGO_PATH = "assets/Logo.png" 
-APP_LOGO_PATH = "assets/Logo.png" # Powered by এর পাশে বসানোর জন্য
+APP_LOGO_PATH = "assets/Logo.png"  
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -94,7 +94,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     except:
         font_match = font_vs = font_powered = ImageFont.load_default()
 
-    # ১. সিরিজের নাম
+     
     series_clean = re.sub(r'[^\w\s\-/\.]', '', series_name).strip().upper()
     font_series_fit = get_font_size_to_fit(series_clean, FONT_BOLD_PATH, 1000, 40)
     bbox = draw.textbbox((0, 0), series_clean, font=font_series_fit)
@@ -102,7 +102,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     draw.text(((POSTER_WIDTH - text_w) / 2 + 2, 22), series_clean, font=font_series_fit, fill="black")
     draw.text(((POSTER_WIDTH - text_w) / 2, 20), series_clean, font=font_series_fit, fill="white")
 
-    # ২. Powered by SAWARID APPS + Logo (লোগো বাম পাশে, লেখার সাইজ অনুযায়ী)
+    
     powered_text = "Powered by: SAWARID APPS"
     bbox_p = draw.textbbox((0, 0), powered_text, font=font_powered)
     p_w = bbox_p[2] - bbox_p[0]
@@ -110,7 +110,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     
     if os.path.exists(APP_LOGO_PATH):
         app_logo = Image.open(APP_LOGO_PATH).convert("RGBA")
-        # লেখার উচ্চতার সমান লোগোর উচ্চতা সেট করা হচ্ছে
+         
         logo_height = p_h
         logo_width = int(app_logo.width * (logo_height / app_logo.height))
         app_logo = app_logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
@@ -118,13 +118,13 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
         total_width = logo_width + 10 + p_w
         start_x = (POSTER_WIDTH - total_width) / 2
         
-        # লোগো এবং টেক্সট বসানো (একই লাইনে)
+         
         canvas.paste(app_logo, (int(start_x), 75), app_logo)
         draw.text((start_x + logo_width + 10, 75), powered_text, font=font_powered, fill="#CCCCCC")
     else:
         draw.text(((POSTER_WIDTH - p_w) / 2, 75), powered_text, font=font_powered, fill="#CCCCCC")
 
-    # ৩. লোগো বসানো
+     
     logo_size = 300
     logo1 = get_team_logo(team1).resize((logo_size, logo_size), Image.Resampling.LANCZOS)
     logo2 = get_team_logo(team2).resize((logo_size, logo_size), Image.Resampling.LANCZOS)
@@ -134,12 +134,12 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
 
     draw = ImageDraw.Draw(canvas)
 
-    # ৪. মাঝখানে VS
+     
     bbox_vs = draw.textbbox((0, 0), "VS", font=font_vs)
     vs_w = bbox_vs[2] - bbox_vs[0]
     draw.text(((POSTER_WIDTH - vs_w) / 2, POSTER_HEIGHT//2 - 60), "VS", font=font_vs, fill="white")
 
-    # ৫. দলের নাম (সংক্ষিপ্ত রূপসহ)
+     
     team1_fmt = format_team_name(team1)
     team2_fmt = format_team_name(team2)
     team_text = f"{team1_fmt.upper()} vs {team2_fmt.upper()}"
@@ -152,7 +152,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     draw.text(((POSTER_WIDTH - t_w) / 2 + 2, text_y + 2), team_text, font=font_teams_fit, fill="black")
     draw.text(((POSTER_WIDTH - t_w) / 2, text_y), team_text, font=font_teams_fit, fill="white")
 
-    # ৬. ম্যাচের ধরন
+     
     if match_type:
         m_text = match_type.upper()
         bbox_m = draw.textbbox((0, 0), m_text, font=font_match)
