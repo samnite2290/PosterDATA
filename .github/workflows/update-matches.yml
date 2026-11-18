@@ -1,0 +1,69 @@
+name: Update Match Notifications  
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PosterDATA repo
+        uses: actions/checkout@v5
+        with:
+          repository: samnite2290/PosterDATA
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: PosterDATA
+
+      - name: Checkout job repo
+        uses: actions/checkout@v5
+        with:
+          repository: samnite2290/job
+          token: ${{ secrets.PUSH_TOKEN }}
+          ref: gh-pages
+          path: job_repo
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y libcairo2
+          pip install requests pytz Pillow cairosvg
+
+      - name: Generate notifications.json and Posters
+        env:
+          SUBTITLE_SUFFIX: " | Select 🅻🅸🅅🅴 🆂🅿🅾🆁🆃🆂 Button, Share Our Apps With Your Friends & Family."
+          SonyLiv_API: ${{ secrets.SonyLiv_API }}
+          FANCEODE_API: ${{ secrets.FANCEODE_API }}
+          TAPMAD_API: ${{ secrets.TAPMAD_API }}
+        run: |
+          cd PosterDATA
+          rm -rf posters/*
+          mkdir -p posters
+          python generate_matches.py
+
+      - name: Commit and push to PosterDATA (posters only)
+        run: |
+          cd PosterDATA
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git add -A posters/
+          git commit -m "Update posters" || echo "No changes"
+          git push origin main
+
+      - name: Push notifications.json to job repo
+        run: |
+          cp PosterDATA/notifications.json job_repo/notifications.json
+          cd job_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git add notifications.json
+          git commit -m "Update notifications.json" || echo "No changes"
+          git push origin gh-pages
