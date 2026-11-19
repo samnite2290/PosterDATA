@@ -3,7 +3,7 @@ import os
 import re
 import requests
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageOps
 import cairosvg # SVG ফ্ল্যাগের জন্য
 
 # --- কনফিগারেশন ---
@@ -15,24 +15,51 @@ FONT_TEAM_PATH = "assets/fonts/Arimo-Bold.ttf"
 
 OUTPUT_DIR = "posters"
 LOGO_BASE_DIR = "assets/Logo"
-COUNTRY_LOGO_DIR = "assets/Logo-Country" # দেশের ফ্ল্যাগের ডিরেক্টরি
+COUNTRY_LOGO_DIR = "assets/Logo-Country" 
 DEFAULT_LOGO_PATH = "assets/Logo.png" 
 APP_LOGO_PATH = "assets/Logo.png" 
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# --- দেশের নাম থেকে ISO কোড ম্যাপিং ---
+# --- দেশের নাম থেকে ISO কোড ম্যাপিং (প্রায় সব দেশ) ---
 COUNTRY_MAP = {
-    "pakistan": "pk", "bangladesh": "bd", "india": "in", "sri lanka": "lk",
-    "afghanistan": "af", "australia": "au", "england": "gb", "new zealand": "nz",
-    "south africa": "za", "west indies": "wi", "ireland": "ie", "zimbabwe": "zw",
-    "scotland": "gb", "netherlands": "nl", "nepal": "np", "oman": "om",
-    "uae": "ae", "united arab emirates": "ae", "usa": "us", "united states": "us",
-    "canada": "ca", "namibia": "na", "brazil": "br", "argentina": "ar",
-    "france": "fr", "germany": "de", "spain": "es", "italy": "it", "portugal": "pt",
-    "belgium": "be", "croatia": "hr", "morocco": "ma", "japan": "jp",
-    "south korea": "kr", "mexico": "mx", "uruguay": "uy", "colombia": "co",
-    "saudi arabia": "sa", "qatar": "qa", "kuwait": "kw", "bahrain": "bh"
+    "afghanistan": "af", "albania": "al", "algeria": "dz", "andorra": "ad", "angola": "ao",
+    "argentina": "ar", "armenia": "am", "australia": "au", "austria": "at", "azerbaijan": "az",
+    "bahamas": "bs", "bahrain": "bh", "bangladesh": "bd", "barbados": "bb", "belarus": "by",
+    "belgium": "be", "belize": "bz", "benin": "bj", "bhutan": "bt", "bolivia": "bo",
+    "bosnia": "ba", "botswana": "bw", "brazil": "br", "brunei": "bn", "bulgaria": "bg",
+    "burkina faso": "bf", "burundi": "bi", "cambodia": "kh", "cameroon": "cm", "canada": "ca",
+    "cape verde": "cv", "central african republic": "cf", "chad": "td", "chile": "cl", "china": "cn",
+    "colombia": "co", "comoros": "km", "congo": "cg", "costa rica": "cr", "croatia": "hr",
+    "cuba": "cu", "cyprus": "cy", "czech republic": "cz", "denmark": "dk", "djibouti": "dj",
+    "dominica": "dm", "dominican republic": "do", "ecuador": "ec", "egypt": "eg", "el salvador": "sv",
+    "england": "gb", "equatorial guinea": "gq", "eritrea": "er", "estonia": "ee", "eswatini": "sz",
+    "ethiopia": "et", "fiji": "fj", "finland": "fi", "france": "fr", "gabon": "ga",
+    "gambia": "gm", "georgia": "ge", "germany": "de", "ghana": "gh", "greece": "gr",
+    "grenada": "gd", "guatemala": "gt", "guinea": "gn", "guyana": "gy", "haiti": "ht",
+    "honduras": "hn", "hungary": "hu", "iceland": "is", "india": "in", "indonesia": "id",
+    "iran": "ir", "iraq": "iq", "ireland": "ie", "israel": "il", "italy": "it",
+    "jamaica": "jm", "japan": "jp", "jordan": "jo", "kazakhstan": "kz", "kenya": "ke",
+    "kuwait": "kw", "kyrgyzstan": "kg", "laos": "la", "latvia": "lv", "lebanon": "lb",
+    "lesotho": "ls", "liberia": "lr", "libya": "ly", "liechtenstein": "li", "lithuania": "lt",
+    "luxembourg": "lu", "madagascar": "mg", "malawi": "mw", "malaysia": "my", "maldives": "mv",
+    "mali": "ml", "malta": "mt", "mauritania": "mr", "mauritius": "mu", "mexico": "mx",
+    "moldova": "md", "monaco": "mc", "mongolia": "mn", "montenegro": "me", "morocco": "ma",
+    "mozambique": "mz", "myanmar": "mm", "namibia": "na", "nepal": "np", "netherlands": "nl",
+    "new zealand": "nz", "nicaragua": "ni", "niger": "ne", "nigeria": "ng", "north korea": "kp",
+    "north macedonia": "mk", "norway": "no", "oman": "om", "pakistan": "pk", "palestine": "ps",
+    "panama": "pa", "papua new guinea": "pg", "paraguay": "py", "peru": "pe", "philippines": "ph",
+    "poland": "pl", "portugal": "pt", "qatar": "qa", "romania": "ro", "russia": "ru",
+    "rwanda": "rw", "saudi arabia": "sa", "scotland": "gb", "senegal": "sn", "serbia": "rs",
+    "seychelles": "sc", "sierra leone": "sl", "singapore": "sg", "slovakia": "sk", "slovenia": "si",
+    "solomon islands": "sb", "somalia": "so", "south africa": "za", "south korea": "kr", "south sudan": "ss",
+    "spain": "es", "sri lanka": "lk", "sudan": "sd", "suriname": "sr", "sweden": "se",
+    "switzerland": "ch", "syria": "sy", "taiwan": "tw", "tajikistan": "tj", "tanzania": "tz",
+    "thailand": "th", "togo": "tg", "tonga": "to", "trinidad and tobago": "tt", "tunisia": "tn",
+    "turkey": "tr", "turkmenistan": "tm", "uganda": "ug", "ukraine": "ua", "united arab emirates": "ae",
+    "uae": "ae", "united kingdom": "gb", "united states": "us", "usa": "us", "uruguay": "uy",
+    "uzbekistan": "uz", "vanuatu": "vu", "venezuela": "ve", "vietnam": "vn", "wales": "gb",
+    "yemen": "ye", "zambia": "zm", "zimbabwe": "zw", "west indies": "wi"
 }
 
 IGNORE_WORDS = ["women", "w", "fc", "afc", "cf", "sc", "club", "u19", "u21", "u23", "vs", "match", "round", "of", "day", "practice", "men"]
@@ -51,7 +78,6 @@ def format_team_name(name):
     return re.sub(r'\s+', ' ', formatted).strip()
 
 def get_svg_image(svg_path):
-    """SVG ফাইলকে ট্রান্সপারেন্ট PNG ইমেজে রূপান্তর করে"""
     try:
         png_data = cairosvg.svg2png(url=svg_path)
         return Image.open(BytesIO(png_data)).convert("RGBA")
@@ -60,7 +86,6 @@ def get_svg_image(svg_path):
         return None
 
 def find_logo_path(team_name):
-    """assets/Logo/ এর ভেতরের সাব-ফোল্ডার থেকে ক্লাব লোগো খুঁজে বের করে"""
     team_clean = clean_name(team_name)
     if not team_clean: return None
     best_match = None
@@ -78,7 +103,7 @@ def find_logo_path(team_name):
 def get_team_logo(team_name):
     name_lower = team_name.lower()
     
-    # ১. প্রথমে দেশের ফ্ল্যাগ (SVG) খুঁজবে COUNTRY_MAP ব্যবহার করে
+    # ১. দেশের ফ্ল্যাগ (SVG) খুঁজবে
     for country, code in COUNTRY_MAP.items():
         if country in name_lower:
             svg_path = os.path.join(COUNTRY_LOGO_DIR, f"{code}.svg")
@@ -86,12 +111,12 @@ def get_team_logo(team_name):
                 img = get_svg_image(svg_path)
                 if img: return img
 
-    # ২. এরপর ক্লাব লোগো (PNG) খুঁজবে
+    # ২. ক্লাব লোগো (PNG) খুঁজবে
     path = find_logo_path(team_name)
     if path and os.path.exists(path):
         return Image.open(path).convert("RGBA")
     
-    # ৩. কিছু না পেলে ডিফল্ট লোগো
+    # ৩. ডিফল্ট লোগো
     if os.path.exists(DEFAULT_LOGO_PATH):
         return Image.open(DEFAULT_LOGO_PATH).convert("RGBA")
         
@@ -148,7 +173,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     draw.text(((POSTER_WIDTH - text_w) / 2 + 2, 22), series_clean, font=font_series_fit, fill="black")
     draw.text(((POSTER_WIDTH - text_w) / 2, 20), series_clean, font=font_series_fit, fill="white")
 
-    # ২. Powered by SAWARID APPS + Logo
+    # ২. Powered by SAWARID APPS
     powered_text = "Powered by: SAWARID APPS"
     bbox_p = draw.textbbox((0, 0), powered_text, font=font_powered)
     p_w = bbox_p[2] - bbox_p[0]
@@ -170,13 +195,22 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     else:
         draw.text(((POSTER_WIDTH - p_w) / 2, 75), powered_text, font=font_powered, fill="#CCCCCC")
 
-    # ৩. লোগো/ফ্ল্যাগ বসানো (লোগো সাইজ ৩০০x৩০০)
-    logo_size = 300
-    logo1 = get_team_logo(team1).resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-    logo2 = get_team_logo(team2).resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+    # ৩. লোগো/ফ্ল্যাগ বসানো (Container Box: 300x300, Flags will naturally fit 3:2)
+    logo1_raw = get_team_logo(team1)
+    logo2_raw = get_team_logo(team2)
     
-    canvas.paste(logo1, (POSTER_WIDTH//4 - logo_size//2, POSTER_HEIGHT//2 - 130), logo1)
-    canvas.paste(logo2, (3*POSTER_WIDTH//4 - logo_size//2, POSTER_HEIGHT//2 - 130), logo2)
+    # ImageOps.contain ব্যবহার করলে অ্যাসপেক্ট রেশিও ঠিক থাকে (ফ্ল্যাগ ৩:২ হবে, ক্লাব লোগো ১:১ থাকবে)
+    logo1 = ImageOps.contain(logo1_raw, (300, 300), Image.Resampling.LANCZOS)
+    logo2 = ImageOps.contain(logo2_raw, (300, 300), Image.Resampling.LANCZOS)
+    
+    # সেন্টার পজিশন ক্যালকুলেশন
+    pos1_x = POSTER_WIDTH//4 - logo1.width//2
+    pos1_y = POSTER_HEIGHT//2 - 130 + (300 - logo1.height)//2
+    pos2_x = 3*POSTER_WIDTH//4 - logo2.width//2
+    pos2_y = POSTER_HEIGHT//2 - 130 + (300 - logo2.height)//2
+    
+    canvas.paste(logo1, (pos1_x, pos1_y), logo1)
+    canvas.paste(logo2, (pos2_x, pos2_y), logo2)
 
     draw = ImageDraw.Draw(canvas)
 
@@ -185,7 +219,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     vs_w = bbox_vs[2] - bbox_vs[0]
     draw.text(((POSTER_WIDTH - vs_w) / 2, POSTER_HEIGHT//2 - 60), "VS", font=font_vs, fill="white")
 
-    # ৫. দলের নাম + ১০% ডার্ক ব্যাকগ্রাউন্ড
+    # ৫. দলের নাম
     team1_fmt = format_team_name(team1)
     team2_fmt = format_team_name(team2)
     team_text = f"{team1_fmt.upper()} vs {team2_fmt.upper()}"
