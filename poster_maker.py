@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import cairosvg 
-import pycountry # নতুন যুক্ত করা হয়েছে
+import pycountry
 
 # --- কনফিগারেশন ---
 POSTER_WIDTH = 1200
@@ -31,6 +31,7 @@ def clean_name(name):
     return re.sub(r'[^a-z0-9]', '', name).strip()
 
 def format_team_name(name):
+    if not name: return ""
     formatted = name
     formatted = re.sub(r'\bWomen\b', '(W)', formatted, flags=re.IGNORECASE)
     formatted = re.sub(r'\bMen\b', '(M)', formatted, flags=re.IGNORECASE)
@@ -50,6 +51,8 @@ def find_logo_path(team_name):
     if not team_clean: return None
     best_match = None
     
+    if not os.path.exists(LOGO_BASE_DIR): return None
+    
     for root, dirs, files in os.walk(LOGO_BASE_DIR):
         for file in files:
             if file.lower().endswith(".png"):
@@ -64,11 +67,19 @@ def get_team_logo(team_name):
     """
     রিটার্ন করে: (Image, is_flag)
     """
+    if not team_name:
+        # ডিফল্ট লোগো রিটার্ন করবে
+        if os.path.exists(DEFAULT_LOGO_PATH):
+            return Image.open(DEFAULT_LOGO_PATH).convert("RGBA"), False
+        img = Image.new("RGBA", (300, 300), (0,0,0,0))
+        draw = ImageDraw.Draw(img)
+        draw.ellipse((0, 0, 300, 300), fill=(255, 255, 255, 50))
+        return img, False
+
     # ১. pycountry দিয়ে দেশের নাম খুঁজে বের করা
     team_clean = clean_name(team_name)
     if team_clean:
         try:
-            # pycountry এর সাহায্যে ফাজি সার্চ
             country = pycountry.countries.search_fuzzy(team_clean)
             if country:
                 code = country[0].alpha_2.lower()
@@ -165,35 +176,42 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
 
     # ৩. লোগো/ফ্ল্যাগ বসানো 
     logo1, is_flag1 = get_team_logo(team1)
-    logo2, is_flag2 = get_team_logo(team2)
+    logo2, is_flag2 = get_team_logo(team2) if team2 else (None, False)
     
     # ফ্ল্যাগ হলে ৩:২ সাইজ (450x300), ক্লাব লোগো হলে ১:১ সাইজ (300x300)
     size1 = (450, 300) if is_flag1 else (300, 300)
-    size2 = (450, 300) if is_flag2 else (300, 300)
     
     logo1 = logo1.resize(size1, Image.Resampling.LANCZOS)
-    logo2 = logo2.resize(size2, Image.Resampling.LANCZOS)
     
-    # X পজিশন অ্যাডজাস্টমেন্ট (মাঝখানে রাখার জন্য)
+    # টিম ১ বসানো
     x1 = POSTER_WIDTH//4 - size1[0]//2
-    x2 = 3*POSTER_WIDTH//4 - size2[0]//2
     y1 = POSTER_HEIGHT//2 - 130
-    y2 = POSTER_HEIGHT//2 - 130
-    
     canvas.paste(logo1, (x1, y1), logo1)
-    canvas.paste(logo2, (x2, y2), logo2)
+    
+    # যদি টিম ২ থাকে
+    if team2 and logo2:
+        size2 = (450, 300) if is_flag2 else (300, 300)
+        logo2 = logo2.resize(size2, Image.Resampling.LANCZOS)
+        x2 = 3*POSTER_WIDTH//4 - size2[0]//2
+        y2 = POSTER_HEIGHT//2 - 130
+        canvas.paste(logo2, (x2, y2), logo2)
 
     draw = ImageDraw.Draw(canvas)
 
-    # ৪. মাঝখানে VS
-    bbox_vs = draw.textbbox((0, 0), "VS", font=font_vs)
-    vs_w = bbox_vs[2] - bbox_vs[0]
-    draw.text(((POSTER_WIDTH - vs_w) / 2, POSTER_HEIGHT//2 - 60), "VS", font=font_vs, fill="white")
+    # ৪. মাঝখানে VS (যদি টিম ২ থাকে)
+    if team2:
+        bbox_vs = draw.textbbox((0, 0), "VS", font=font_vs)
+        vs_w = bbox_vs[2] - bbox_vs[0]
+        draw.text(((POSTER_WIDTH - vs_w) / 2, POSTER_HEIGHT//2 - 60), "VS", font=font_vs, fill="white")
 
     # ৫. দলের নাম + ১০% ডার্ক ব্যাকগ্রাউন্ড
     team1_fmt = format_team_name(team1)
     team2_fmt = format_team_name(team2)
-    team_text = f"{team1_fmt.upper()} vs {team2_fmt.upper()}"
+    
+    if team2_fmt:
+        team_text = f"{team1_fmt.upper()} vs {team2_fmt.upper()}"
+    else:
+        team_text = team1_fmt.upper()
     
     font_teams_fit = get_font_size_to_fit(team_text, FONT_TEAM_PATH, 1100, 65)
     bbox_t = draw.textbbox((0, 0), team_text, font=font_teams_fit)
