@@ -15,11 +15,25 @@ FONT_TEAM_PATH = "assets/fonts/Arimo-Bold.ttf"
 
 OUTPUT_DIR = "posters"
 LOGO_BASE_DIR = "assets/Logo"
-COUNTRY_LOGO_DIR = "assets/Logo-Country" # দেশের ফ্ল্যাগের জন্য নতুন ডিরেক্টরি
+COUNTRY_LOGO_DIR = "assets/Logo-Country" # দেশের ফ্ল্যাগের ডিরেক্টরি
 DEFAULT_LOGO_PATH = "assets/Logo.png" 
 APP_LOGO_PATH = "assets/Logo.png" 
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# --- দেশের নাম থেকে ISO কোড ম্যাপিং ---
+COUNTRY_MAP = {
+    "pakistan": "pk", "bangladesh": "bd", "india": "in", "sri lanka": "lk",
+    "afghanistan": "af", "australia": "au", "england": "gb", "new zealand": "nz",
+    "south africa": "za", "west indies": "wi", "ireland": "ie", "zimbabwe": "zw",
+    "scotland": "gb", "netherlands": "nl", "nepal": "np", "oman": "om",
+    "uae": "ae", "united arab emirates": "ae", "usa": "us", "united states": "us",
+    "canada": "ca", "namibia": "na", "brazil": "br", "argentina": "ar",
+    "france": "fr", "germany": "de", "spain": "es", "italy": "it", "portugal": "pt",
+    "belgium": "be", "croatia": "hr", "morocco": "ma", "japan": "jp",
+    "south korea": "kr", "mexico": "mx", "uruguay": "uy", "colombia": "co",
+    "saudi arabia": "sa", "qatar": "qa", "kuwait": "kw", "bahrain": "bh"
+}
 
 IGNORE_WORDS = ["women", "w", "fc", "afc", "cf", "sc", "club", "u19", "u21", "u23", "vs", "match", "round", "of", "day", "practice", "men"]
 
@@ -37,7 +51,7 @@ def format_team_name(name):
     return re.sub(r'\s+', ' ', formatted).strip()
 
 def get_svg_image(svg_path):
-    """SVG ফাইলকে PNG ইমেজে রূপান্তর করে"""
+    """SVG ফাইলকে ট্রান্সপারেন্ট PNG ইমেজে রূপান্তর করে"""
     try:
         png_data = cairosvg.svg2png(url=svg_path)
         return Image.open(BytesIO(png_data)).convert("RGBA")
@@ -46,6 +60,7 @@ def get_svg_image(svg_path):
         return None
 
 def find_logo_path(team_name):
+    """assets/Logo/ এর ভেতরের সাব-ফোল্ডার থেকে ক্লাব লোগো খুঁজে বের করে"""
     team_clean = clean_name(team_name)
     if not team_clean: return None
     best_match = None
@@ -61,13 +76,15 @@ def find_logo_path(team_name):
     return best_match
 
 def get_team_logo(team_name):
-    # ১. প্রথমে দেশের ফ্ল্যাগ (SVG) খুঁজবে
-    clean_t = clean_name(team_name)
-    if clean_t and os.path.exists(COUNTRY_LOGO_DIR):
-        svg_path = os.path.join(COUNTRY_LOGO_DIR, f"{clean_t}.svg")
-        if os.path.exists(svg_path):
-            img = get_svg_image(svg_path)
-            if img: return img
+    name_lower = team_name.lower()
+    
+    # ১. প্রথমে দেশের ফ্ল্যাগ (SVG) খুঁজবে COUNTRY_MAP ব্যবহার করে
+    for country, code in COUNTRY_MAP.items():
+        if country in name_lower:
+            svg_path = os.path.join(COUNTRY_LOGO_DIR, f"{code}.svg")
+            if os.path.exists(svg_path):
+                img = get_svg_image(svg_path)
+                if img: return img
 
     # ২. এরপর ক্লাব লোগো (PNG) খুঁজবে
     path = find_logo_path(team_name)
@@ -203,6 +220,5 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
         draw.text(((POSTER_WIDTH - m_w) / 2, text_y + 70), m_text, font=font_match, fill="#FFD700")
 
     output_path = os.path.join(OUTPUT_DIR, output_filename)
-    # PNG হিসেবে সেভ করা হচ্ছে
     canvas.convert("RGB").save(output_path, format="PNG")
     return output_path
