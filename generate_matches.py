@@ -57,9 +57,10 @@ CRICKET_LEAGUES = {
     "nepal":     ("🏏 NEPAL PREMIER LEAGUE 2026",      "Fancode"),
 }
 
-POPULAR_KEYWORDS = ["bangladesh", "pakistan", "india", "bpl", "psl", "ipl", "world cup", "asia cup", "champions trophy", "premier league", "la liga", "champions league", "real madrid", "barcelona", "manchester", "liverpool", "arsenal", "chelsea", "bayern", "psg", "juventus", "brazil", "argentina", "kolkata", "mumbai", "chennai", "karachi", "lahore", "dhaka", "comilla", "brisbane", "sydney", "melbourne", "perth", "hobart", "women", "inter", "nations league", "afc", "awards", "formula", "golf", "sri lanka"]
+POPULAR_KEYWORDS = ["bangladesh", "pakistan", "india", "bpl", "psl", "ipl", "world cup", "asia cup", "champions trophy", "premier league", "la liga", "champions league", "real madrid", "barcelona", "manchester", "liverpool", "arsenal", "chelsea", "bayern", "psg", "juventus", "brazil", "argentina", "kolkata", "mumbai", "chennai", "karachi", "lahore", "dhaka", "comilla", "brisbane", "sydney", "melbourne", "perth", "hobart", "women", "inter", "nations league", "afc", "awards", "sri lanka"]
 
-IGNORE_SPORTS = ["doubles", "atp", "wta", "tur", "turin", "day 1", "day 2", "day 3", "day 4", "race", "practice", "qualifying", "grand prix", "tennis", "golf", "georgia", "las vegas", "circuit", "round of 16"]
+# এখানে Golf, F1, Tennis ইত্যাদি বাদ দেওয়ার জন্য কীওয়ার্ড যুক্ত করা হয়েছে
+IGNORE_SPORTS = ["doubles", "atp", "wta", "tur", "turin", "day 1", "day 2", "day 3", "day 4", "race", "practice", "qualifying", "grand prix", "tennis", "golf", "formula", "motorsports", "circuit", "round of 16", "quarter-final", "quarter final", "semi-final", "semi final"]
 
 def format_team_name(name):
     formatted = name
@@ -71,6 +72,7 @@ def format_team_name(name):
 def fetch_json(url, headers=None):
     if not url: 
         return []
+    url = url.strip() # %0A বা নতুন লাইন এরর ফিক্স করার জন্য
     try:
         r = requests.get(url, headers=headers, timeout=30)
         r.raise_for_status()
@@ -93,9 +95,13 @@ def calc_multiple_time(sport, fmt, start_bd):
 def get_poster_link(t1, t2, sub_name, fmt, sport, start):
     try:
         t1_safe = re.sub(r'[^a-zA-Z0-9]', '_', t1)
-        t2_safe = re.sub(r'[^a-zA-Z0-9]', '_', t2)
         date_str = start.strftime("%Y%m%d")
-        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png" 
+        
+        if t2:
+            t2_safe = re.sub(r'[^a-zA-Z0-9]', '_', t2)
+            filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png"
+        else:
+            filename = f"{sport}_{t1_safe}_{date_str}.png"
         
         sport_type = "Cricket" if sport == "cricket" else "Soccer"
         match_type = fmt if fmt else ""
@@ -130,12 +136,23 @@ def league_meta(sport, comp):
         if key in c: return val
     return ("🏏 CRICKET 2026" if sport == "cricket" else "⚽ FOOTBALL 2026", "Fancode" if sport == "cricket" else "T Sports")
 
-def build_entry(start, t1, t2, comp, channel, api_image=None):
-    if not t1 or not t2: return None
-    if not start: return None
+def is_popular_and_valid(t1, t2, comp):
+    full_text = f"{t1} {t2} {comp}".lower()
+    if "tbc" in t1.lower() or "tbc" in t2.lower(): return False
+    for word in IGNORE_SPORTS:
+        if word in full_text: return False
+    for keyword in POPULAR_KEYWORDS:
+        if keyword in full_text: return True
+    return False
 
-    # স্পোর্টস ডিটেক্ট
-    sport = "cricket" if "cricket" in comp.lower() or any(x in comp.lower() for x in ("t20", "t10", "odi", "test", "ipl")) else "football"
+def build_entry(start, t1, t2, comp, channel, sport, api_image=None):
+    if not t1: return None
+    if not start: return None
+    
+    # ফিল্টার চেক যুক্ত করা হয়েছে
+    if not is_popular_and_valid(t1, t2, comp):
+        return None
+
     sub_name, default_channel = league_meta(sport, comp)
     if not channel or channel == "":
         channel = default_channel
@@ -143,13 +160,15 @@ def build_entry(start, t1, t2, comp, channel, api_image=None):
 
     t1_fmt = format_team_name(t1)
     t2_fmt = format_team_name(t2)
-    title = f"{t1_fmt} 🆚 {t2_fmt} । Watch on {channel}"
+    
+    if t2_fmt:
+        title = f"{t1_fmt} 🆚 {t2_fmt} । Watch on {channel}"
+    else:
+        title = f"{t1_fmt} । Watch on {channel}"
+        
     subtitle = f"{sub_name}{SUBTITLE_SUFFIX}"
     
-    # পোস্টার সবসময় জেনারেট হবে
     poster_url = get_poster_link(t1, t2, sub_name, fmt, sport, start)
-    
-    # ইমেজ সিলেকশন: API তে থাকলে API এর ইমেজ, না থাকলে আমাদের পোস্টার
     image = api_image if api_image else (poster_url if poster_url else DEFAULT_IMAGE)
     
     date_time = bst_str(start - timedelta(minutes=5))
@@ -173,6 +192,7 @@ def build_entry(start, t1, t2, comp, channel, api_image=None):
 
 def process_fancode_api(data):
     entries = []
+    if not isinstance(data, dict): return entries # list হলে ক্র্যাশ ঠেকানোর জন্য
     for ev in data.get("matches", []):
         status = ev.get("status", "").lower()
         try:
@@ -180,7 +200,6 @@ def process_fancode_api(data):
         except:
             continue
             
-        # লাইভ ম্যাচ টাইম অ্যাডজাস্টমেন্ট (ক্রিকেটের জন্য ২ ঘন্টা পর)
         if status == "live" and NOW_BD > start + timedelta(hours=2):
             start = NOW_BD + timedelta(minutes=20)
             
@@ -191,13 +210,15 @@ def process_fancode_api(data):
         comp = ev.get("event_name", "")
         channel = "Fancode"
         api_image = ev.get("src")
+        sport = "cricket" if ev.get("event_category", "").lower() == "cricket" else "football"
         
-        entry = build_entry(start, t1, t2, comp, channel, api_image)
+        entry = build_entry(start, t1, t2, comp, channel, sport, api_image)
         if entry: entries.append(entry)
     return entries
 
 def process_tapmad_api(data):
     entries = []
+    if not isinstance(data, dict): return entries # list হলে ক্র্যাশ ঠেকানোর জন্য
     for ev in data.get("Matches", []):
         status = ev.get("Status", "").lower()
         try:
@@ -215,19 +236,20 @@ def process_tapmad_api(data):
         if " vs " in video_name:
             t1, t2 = video_name.split(" vs ", 1)
         else:
-            t1, t2 = video_name, video_name
+            t1, t2 = video_name, ""
             
         comp = ev.get("CategoryName", "")
+        stage = ev.get("StageName", "")
         channel = "Tapmad"
         api_image = ev.get("ThumbnailStandard")
+        sport = detect_sport(ev, f"{comp} {stage}")
         
-        entry = build_entry(start, t1.strip(), t2.strip(), comp, channel, api_image)
+        entry = build_entry(start, t1.strip(), t2.strip(), comp, channel, sport, api_image)
         if entry: entries.append(entry)
     return entries
 
 def process_sports1_api(data):
     entries = []
-    # Sports1 API ডাটা লিস্ট বা ডিকশনারি হতে পারে
     events = data if isinstance(data, list) else data.get("events", [])
     
     for ev in events:
@@ -248,37 +270,31 @@ def process_sports1_api(data):
         t2 = info.get("teamB", "")
         comp = ev.get("Category", "") or info.get("eventName", "")
         
-        # চ্যানেল নেম বের করা
         streams = ev.get("streams", [])
         channel = streams[0].get("channel_name", "Sports") if streams else "Sports"
         
-        # নির্দেশনা অনুযায়ী SPORTS1_API থেকে কোনো ইমেজ নেওয়া হবে না
-        api_image = None
+        api_image = None # Sports1 API থেকে ইমেজ নেওয়া হবে না
+        sport = detect_sport(ev, comp)
         
-        entry = build_entry(start, t1, t2, comp, channel, api_image)
+        entry = build_entry(start, t1, t2, comp, channel, sport, api_image)
         if entry: entries.append(entry)
     return entries
-
 
 def main():
     all_results = []
     
-    # ১. Fancode
     if FANCEODE_API:
         data = fetch_json(FANCEODE_API)
         all_results.extend(process_fancode_api(data))
         
-    # ২. Tapmad
     if TAPMAD_API:
         data = fetch_json(TAPMAD_API)
         all_results.extend(process_tapmad_api(data))
         
-    # ৩. Sports1
     if SPORTS1_API:
         data = fetch_json(SPORTS1_API)
         all_results.extend(process_sports1_api(data))
 
-    # ডুপ্লিকেট রিমুভ এবং সর্টিং
     seen = set()
     unique_results = []
     for entry in all_results:
