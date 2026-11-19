@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 # --- কনফিগারেশন ---
 POSTER_WIDTH = 1200
 POSTER_HEIGHT = 600
-FONT_BOLD_PATH = "assets/fonts/Oswald-Bold.ttf"
+FONT_BOLD_PATH = "assets/fonts/KumbhSans-VariableFont_YOPQ,wght.ttf"
 FONT_REGULAR_PATH = "assets/fonts/Oswald-Regular.ttf"
 OUTPUT_DIR = "posters"
 LOGO_BASE_DIR = "assets/Logo"
