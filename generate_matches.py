@@ -154,11 +154,19 @@ def bst_str(dt):
     return dt.strftime("%d-%m-%Y-%I:%M 00 %p").lower()
 
 def calc_multiple_time(sport, fmt, start_bd):
-    if sport == "football": return start_bd + timedelta(minutes=110)
-    if fmt == "T20": return start_bd + timedelta(minutes=105)
-    if fmt == "T10": return start_bd + timedelta(minutes=55)
-    if fmt == "ODI": return start_bd + timedelta(minutes=240)
-    if fmt == "Test": return start_bd + timedelta(minutes=150)
+    """
+    আপনার দেওয়া নিয়ম অনুযায়ী multipleTime হিসাব করা হচ্ছে।
+    """
+    if sport == "football": 
+        return start_bd + timedelta(minutes=60) # 45m + 15m break
+    if fmt == "T20": 
+        return start_bd + timedelta(minutes=105)
+    if fmt == "T10": 
+        return start_bd + timedelta(minutes=55)
+    if fmt == "ODI": 
+        return start_bd + timedelta(minutes=240)
+    if fmt == "Test": 
+        return start_bd + timedelta(minutes=150) # Lunch/Tea break approx
     return start_bd + timedelta(minutes=60)
 
 def get_poster_link(t1, t2, sub_name, fmt, sport, start):
@@ -166,7 +174,7 @@ def get_poster_link(t1, t2, sub_name, fmt, sport, start):
         t1_safe = re.sub(r'[^a-zA-Z0-9]', '_', t1)
         t2_safe = re.sub(r'[^a-zA-Z0-9]', '_', t2)
         date_str = start.strftime("%Y%m%d")
-        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png" # PNG এক্সটেনশন
+        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png" 
         
         sport_type = "Cricket" if sport == "cricket" else "Soccer"
         match_type = fmt if fmt else ""
@@ -213,19 +221,23 @@ def build_entry(ev, platform_tag):
     t1_fmt = format_team_name(t1)
     t2_fmt = format_team_name(t2)
     title = f"{t1_fmt} 🆚 {t2_fmt} । Watch on {channel}"
+    
+    # Subtitle-এ আপনার দেওয়া টেক্সট যোগ করা হচ্ছে
     subtitle = f"{sub_name}{SUBTITLE_SUFFIX}"
     
-    # --- পরিবর্তন: সব ম্যাচের জন্য পোস্টার তৈরি হবে ---
+    # পোস্টার তৈরি (যদি না হয় তবে ডিফল্ট)
     poster_url = get_poster_link(t1, t2, sub_name, fmt, sport, start)
     image = poster_url if poster_url else DEFAULT_IMAGE
     
+    # Date & Time ম্যাচ শুরু হওয়ার ৫ মিনিট আগে
     date_time = bst_str(start - timedelta(minutes=5))
 
-    is_important = any(k in comp.lower() for k in IMPORTANT_LEAGUES)
+    # important লীগ হলে multipleTimeRun On হবে, নয়তো Off
+    is_important = any(k in comp.lower() for k in IMPORTANT_LEAGUES) or any(k in channel.lower() for k in ["sonyliv", "fancode", "tapmad"])
     multiple_on = "On" if is_important else "Off"
     
     multiple_time = ""
-    if is_important:
+    if multiple_on == "On":
         mt_time = calc_multiple_time(sport, fmt, start)
         multiple_time = f"({bst_str(mt_time)})"
 
