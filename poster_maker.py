@@ -8,16 +8,17 @@ from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 # --- কনফিগারেশন ---
 POSTER_WIDTH = 1200
 POSTER_HEIGHT = 600
-FONT_BOLD_PATH = "assets/fonts/KumbhSans-VariableFont_YOPQ,wght.ttf"
+FONT_BOLD_PATH = "assets/fonts/Oswald-Bold.ttf" # লিগের নামের জন্য
 FONT_REGULAR_PATH = "assets/fonts/Oswald-Regular.ttf"
+FONT_TEAM_PATH = "assets/fonts/Arimo-Bold.ttf" # টিম এবং VS এর জন্য নতুন ফন্ট
+
 OUTPUT_DIR = "posters"
 LOGO_BASE_DIR = "assets/Logo"
 DEFAULT_LOGO_PATH = "assets/Logo.png" 
-APP_LOGO_PATH = "assets/Logo.png" # Powered by এর পাশে বসানোর জন্য
+APP_LOGO_PATH = "assets/Logo.png" 
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# "city", "united", "milan" বাদ দেওয়া হয়েছে যাতে ভুল লোগো না আসে
 IGNORE_WORDS = ["women", "w", "fc", "afc", "cf", "sc", "club", "u19", "u21", "u23", "vs", "match", "round", "of", "day", "practice", "men"]
 
 def clean_name(name):
@@ -71,7 +72,10 @@ def get_font_size_to_fit(text, font_path, max_width, max_size=75):
         if text_w <= max_width:
             return font
         size -= 5
-    return ImageFont.truetype(font_path, 20)
+    try:
+        return ImageFont.truetype(font_path, 20)
+    except:
+        return ImageFont.load_default()
 
 def create_poster(team1, team2, series_name, match_type, output_filename, sport_type="Soccer"):
     print(f"Generating poster for {team1} vs {team2}...")
@@ -90,12 +94,13 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
 
     try:
         font_match = ImageFont.truetype(FONT_BOLD_PATH, 30)
-        font_vs = ImageFont.truetype(FONT_BOLD_PATH, 90)
+        font_vs = ImageFont.truetype(FONT_TEAM_PATH, 90) # VS এর জন্য Arimo
         font_powered = ImageFont.truetype(FONT_REGULAR_PATH, 25)
+        font_teams = ImageFont.truetype(FONT_TEAM_PATH, 65) # টিমের জন্য Arimo
     except:
-        font_match = font_vs = font_powered = ImageFont.load_default()
+        font_match = font_vs = font_powered = font_teams = ImageFont.load_default()
 
-    # ১. সিরিজের নাম
+    # ১. সিরিজের নাম (Oswald ফন্ট)
     series_clean = re.sub(r'[^\w\s\-/\.]', '', series_name).strip().upper()
     font_series_fit = get_font_size_to_fit(series_clean, FONT_BOLD_PATH, 1000, 40)
     bbox = draw.textbbox((0, 0), series_clean, font=font_series_fit)
@@ -103,7 +108,7 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     draw.text(((POSTER_WIDTH - text_w) / 2 + 2, 22), series_clean, font=font_series_fit, fill="black")
     draw.text(((POSTER_WIDTH - text_w) / 2, 20), series_clean, font=font_series_fit, fill="white")
 
-    # ২. Powered by SAWARID APPS + Logo (লোগো ডান পাশে, লেখার উচ্চতা বরাবর)
+    # ২. Powered by SAWARID APPS + Logo (লোগো ডান পাশে, একটু বড় এবং সেন্টার করা)
     powered_text = "Powered by: SAWARID APPS"
     bbox_p = draw.textbbox((0, 0), powered_text, font=font_powered)
     p_w = bbox_p[2] - bbox_p[0]
@@ -112,23 +117,22 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
     if os.path.exists(APP_LOGO_PATH):
         app_logo = Image.open(APP_LOGO_PATH).convert("RGBA")
         
-        # লেখার উচ্চতার সমান লোগোর উচ্চতা সেট করা হচ্ছে
-        logo_height = p_h
+        # লোগো সাইজ একটু বড় করা হলো (১.২ গুণ) যাতে লেখার সাথে মানায়
+        logo_height = int(p_h * 1.2) 
         logo_width = int(app_logo.width * (logo_height / app_logo.height))
         app_logo = app_logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
         
-        # মোট প্রস্থ = টেক্সট + গ্যাপ + লোগো
         gap = 10
         total_width = p_w + gap + logo_width
         
-        # সেন্টার থেকে শুরুর পজিশন
         start_x = (POSTER_WIDTH - total_width) / 2
         
-        # টেক্সট বসানো (বাম দিকে)
+        # টেক্সট বসানো
         draw.text((start_x, 75), powered_text, font=font_powered, fill="#CCCCCC")
         
-        # লোগো বসানো (ডান দিকে, টেক্সটের ঠিক সমান উচ্চতায়)
-        canvas.paste(app_logo, (int(start_x + p_w + gap), 75), app_logo)
+        # লোগো বসানো (টেক্সটের ঠিক ডান পাশে, Y পজিশন সমন্বয় করে)
+        logo_y = 75 + (p_h - logo_height) // 2 
+        canvas.paste(app_logo, (int(start_x + p_w + gap), int(logo_y)), app_logo)
     else:
         draw.text(((POSTER_WIDTH - p_w) / 2, 75), powered_text, font=font_powered, fill="#CCCCCC")
 
@@ -142,25 +146,44 @@ def create_poster(team1, team2, series_name, match_type, output_filename, sport_
 
     draw = ImageDraw.Draw(canvas)
 
-    # ৪. মাঝখানে VS
+    # ৪. মাঝখানে VS (Arimo ফন্ট)
     bbox_vs = draw.textbbox((0, 0), "VS", font=font_vs)
     vs_w = bbox_vs[2] - bbox_vs[0]
     draw.text(((POSTER_WIDTH - vs_w) / 2, POSTER_HEIGHT//2 - 60), "VS", font=font_vs, fill="white")
 
-    # ৫. দলের নাম (সংক্ষিপ্ত রূপসহ)
+    # ৫. দলের নাম (Arimo ফন্ট + ব্যাকগ্রাউন্ড)
     team1_fmt = format_team_name(team1)
     team2_fmt = format_team_name(team2)
     team_text = f"{team1_fmt.upper()} vs {team2_fmt.upper()}"
     
-    font_teams_fit = get_font_size_to_fit(team_text, FONT_BOLD_PATH, 1100, 65)
+    font_teams_fit = get_font_size_to_fit(team_text, FONT_TEAM_PATH, 1100, 65)
     bbox_t = draw.textbbox((0, 0), team_text, font=font_teams_fit)
     t_w = bbox_t[2] - bbox_t[0]
+    t_h = bbox_t[3] - bbox_t[1]
     
     text_y = POSTER_HEIGHT - 130
-    draw.text(((POSTER_WIDTH - t_w) / 2 + 2, text_y + 2), team_text, font=font_teams_fit, fill="black")
-    draw.text(((POSTER_WIDTH - t_w) / 2, text_y), team_text, font=font_teams_fit, fill="white")
+    text_x = (POSTER_WIDTH - t_w) / 2
+    
+    # ব্যাকগ্রাউন্ড তৈরি করা (১০% ডার্ক কালার)
+    # ডান থেকে বামে লেখার স্থান অনুযায়ী ব্যাকগ্রাউন্ড নিশ্চিত করতে প্যাডিং যোগ করা হলো
+    pad_x = 20
+    pad_y = 10
+    bg_rect = [text_x - pad_x, text_y - pad_y, text_x + t_w + pad_x, text_y + t_h + pad_y]
+    
+    # একটি ট্রান্সপারেন্ট লেয়ার তৈরি করে তাতে ডার্ক রেক্ট্যাঙ্গল আঁকা
+    overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    overlay_draw.rectangle(bg_rect, fill=(0, 0, 0, 25)) # 25 মানে প্রায় ১০% অ্যালফা
+    canvas = Image.alpha_composite(canvas, overlay)
+    
+    # কম্পোজিট করার পর আবার ড্র অবজেক্ট নিতে হবে
+    draw = ImageDraw.Draw(canvas)
 
-    # ৬. ম্যাচের ধরন
+    # টেক্সট আঁকা
+    draw.text((text_x + 2, text_y + 2), team_text, font=font_teams_fit, fill="black")
+    draw.text((text_x, text_y), team_text, font=font_teams_fit, fill="white")
+
+    # ৬. ম্যাচের ধরন (Oswald ফন্ট)
     if match_type:
         m_text = match_type.upper()
         bbox_m = draw.textbbox((0, 0), m_text, font=font_match)
