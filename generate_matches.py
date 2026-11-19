@@ -11,13 +11,13 @@ from poster_maker import create_poster
 BD = pytz.timezone("Asia/Dhaka")
 NOW_BD = datetime.now(BD)
 TODAY_BD = NOW_BD.date()
-END_DATE = NOW_BD + timedelta(hours=48) # আগামী ৪৮ ঘণ্টার ম্যাচ খুঁজবে
+END_DATE = NOW_BD + timedelta(hours=48)
 
 # --- এপিআই কনফিগারেশন ---
 SONYLIV_API = os.getenv("SonyLiv_API")
 FANCEODE_API = os.getenv("FANCEODE_API")
 TAPMAD_API = os.getenv("TAPMAD_API")
-SPORTS1_API = os.getenv("SPORTS1_API") # নতুন যুক্ত করা এপিআই
+SPORTS1_API = os.getenv("SPORTS1_API") 
 
 DEFAULT_IMAGE = "https://raw.githubusercontent.com/samnite2290/img/gh-pages/HOME/HOME-LIVE-EVENT.png"
 SUBTITLE_SUFFIX = " | Select 🅻🅸🆅🅴 🆂🅿🅾🆁🆃🆂 Button, Share Our Apps With Your Friends & Family."
@@ -27,7 +27,7 @@ GITHUB_REPO = "PosterDATA"
 GITHUB_BRANCH = "main"
 
 # --- লিগ এবং স্পোর্টস ম্যাপিং ---
-IMPORTANT_LEAGUES = ["world cup", "nations league", "ipl", "bpl", "psl", "premier league", "champions league", "la liga", "test", "odi", "t20", "afc"]
+IMPORTANT_LEAGUES = ["world cup", "nations league", "ipl", "bpl", "psl", "premier league", "champions league", "la liga", "test", "odi", "t20", "afc", "big bash", "pakistan", "sri lanka", "india", "bangladesh"]
 
 FOOTBALL_LEAGUES = {
     "premier league":   ("🏆 ENGLISH ⚽ PREMIER LEAGUE 2026/27", "TNT 1"),
@@ -57,7 +57,7 @@ CRICKET_LEAGUES = {
     "nepal":     ("🏏 NEPAL PREMIER LEAGUE 2026",      "Fancode"),
 }
 
-POPULAR_KEYWORDS = ["bangladesh", "pakistan", "india", "bpl", "psl", "ipl", "world cup", "asia cup", "champions trophy", "premier league", "la liga", "champions league", "real madrid", "barcelona", "manchester", "liverpool", "arsenal", "chelsea", "bayern", "psg", "juventus", "brazil", "argentina", "kolkata", "mumbai", "chennai", "karachi", "lahore", "dhaka", "comilla", "brisbane", "sydney", "melbourne", "perth", "hobart", "women", "inter", "nations league", "afc", "awards", "formula", "golf"]
+POPULAR_KEYWORDS = ["bangladesh", "pakistan", "india", "bpl", "psl", "ipl", "world cup", "asia cup", "champions trophy", "premier league", "la liga", "champions league", "real madrid", "barcelona", "manchester", "liverpool", "arsenal", "chelsea", "bayern", "psg", "juventus", "brazil", "argentina", "kolkata", "mumbai", "chennai", "karachi", "lahore", "dhaka", "comilla", "brisbane", "sydney", "melbourne", "perth", "hobart", "women", "inter", "nations league", "afc", "awards", "formula", "golf", "sri lanka"]
 
 IGNORE_SPORTS = ["doubles", "atp", "wta", "tur", "turin", "day 1", "day 2", "day 3", "day 4", "race", "practice", "qualifying", "grand prix", "tennis", "golf", "georgia", "spain", "barcelona", "las vegas", "circuit", "round of 16"]
 
@@ -88,23 +88,18 @@ def _iter_events(data):
             if isinstance(v, list): return v
     return []
 
-# --- নতুন টাইম পার্সিং ফাংশন (সব এপিআই সাপোর্ট করবে) ---
 def parse_start(ev):
-    # ফরম্যাট ১: Fancode ("10:30:00 AM 20-11-2026")
     if "startTime" in ev and isinstance(ev["startTime"], str):
         try: return datetime.strptime(ev["startTime"], "%I:%M:%S %p %d-%m-%Y").replace(tzinfo=BD)
         except: pass
-    # ফরম্যাট ২: SPORTS1 ("16/11/2026 08:35:00 AM")
     if "eventInfo" in ev and "startTime" in ev["eventInfo"]:
         try: return datetime.strptime(ev["eventInfo"]["startTime"], "%d/%m/%Y %I:%M:%S %p").replace(tzinfo=BD)
         except: pass
-    # ফরম্যাট ৩: Tapmad ("2026-11-17 10:30:00")
     if "EventStartDate" in ev:
         try: return datetime.strptime(ev["EventStartDate"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=BD)
         except: pass
     return None
 
-# --- নতুন টিম এক্সট্রাক্টর (SPORTS1 সাপোর্ট সহ) ---
 def extract_teams(ev):
     if "team_1" in ev and "team_2" in ev:
         return str(ev["team_1"]).strip(), str(ev["team_2"]).strip()
@@ -121,11 +116,6 @@ def extract_competition(ev):
     if "CategoryName" in ev: return ev["CategoryName"]
     if "event_name" in ev: return ev["event_name"]
     if "eventInfo" in ev and "eventName" in ev["eventInfo"]: return ev["eventInfo"]["eventName"]
-    return ""
-
-def extract_image(ev):
-    if "src" in ev and isinstance(ev["src"], str): return ev["src"]
-    if "ThumbnailStandard" in ev and isinstance(ev["ThumbnailStandard"], str): return ev["ThumbnailStandard"]
     return ""
 
 def extract_channel(ev, default_channel):
@@ -176,7 +166,7 @@ def get_poster_link(t1, t2, sub_name, fmt, sport, start):
         t1_safe = re.sub(r'[^a-zA-Z0-9]', '_', t1)
         t2_safe = re.sub(r'[^a-zA-Z0-9]', '_', t2)
         date_str = start.strftime("%Y%m%d")
-        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.jpg"
+        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png" # PNG এক্সটেনশন
         
         sport_type = "Cricket" if sport == "cricket" else "Soccer"
         match_type = fmt if fmt else ""
@@ -198,37 +188,25 @@ def is_popular_and_valid(t1, t2, comp):
         if keyword in full_text: return True
     return False
 
-# --- মূল বিল্ড এন্ট্রি ফাংশন ---
 def build_entry(ev, platform_tag):
     start = parse_start(ev)
-    if not start: 
-        return None
+    if not start: return None
         
-    # নতুন লজিক: LIVE ম্যাচের ক্ষেত্রে স্ক্রিপ্ট রান করার ২০ মিনিট পর টাইম সেট হবে
     status = (ev.get("status") or ev.get("Status") or "").lower()
-    if status == "live":
-        # যদি ম্যাচ ইতিমধ্যে শুরু হয়ে যায়, তবে বর্তমান সময়ের ২০ মিনিট পর নোটিফিকেশন যাবে
-        if NOW_BD > start:
-            start = NOW_BD + timedelta(minutes=20)
-        # যদি এখনো শুরু না হয় তবে ৫ মিনিট আগে স্বাভাবিকভাবে কাজ করবে
-        if not (NOW_BD <= start <= END_DATE):
-            return None
-    else:
-        # UPCOMING ম্যাচের জন্য আগের মতোই ৪৮ ঘণ্টার রেঞ্জ চেক
-        if not (NOW_BD <= start <= END_DATE): 
-            return None 
+    if status == "live" and NOW_BD > start:
+        start = NOW_BD + timedelta(minutes=20)
+        
+    if not (NOW_BD <= start <= END_DATE): 
+        return None 
         
     t1, t2 = extract_teams(ev)
-    if not t1 or not t2: 
-        return None
+    if not t1 or not t2: return None
 
     comp = extract_competition(ev)
-    if not is_popular_and_valid(t1, t2, comp): 
-        return None
+    if not is_popular_and_valid(t1, t2, comp): return None
 
     sport = detect_sport(ev, comp)
     sub_name, default_channel = league_meta(sport, comp)
-    
     channel = extract_channel(ev, default_channel)
     fmt = guess_format(comp) if sport == "cricket" else ""
 
@@ -237,13 +215,9 @@ def build_entry(ev, platform_tag):
     title = f"{t1_fmt} 🆚 {t2_fmt} । Watch on {channel}"
     subtitle = f"{sub_name}{SUBTITLE_SUFFIX}"
     
-    # ইমেজ লিংক চেক: এপিআই-তে ইমেজ থাকলে সেটা, না থাকলে আমাদের পোস্টার
-    api_img = extract_image(ev)
-    if api_img:
-        image = api_img
-    else:
-        poster_url = get_poster_link(t1, t2, sub_name, fmt, sport, start)
-        image = poster_url if poster_url else DEFAULT_IMAGE
+    # --- পরিবর্তন: সব ম্যাচের জন্য পোস্টার তৈরি হবে ---
+    poster_url = get_poster_link(t1, t2, sub_name, fmt, sport, start)
+    image = poster_url if poster_url else DEFAULT_IMAGE
     
     date_time = bst_str(start - timedelta(minutes=5))
 
@@ -267,7 +241,6 @@ def build_entry(ev, platform_tag):
 def main():
     results, seen = [], set()
     
-    # এপিআই সোর্সগুলোর লিস্ট (SPORTS1_API যুক্ত করা হয়েছে)
     broadcast_sources = [
         ("fancode", FANCEODE_API, "Fancode"),
         ("sonyliv", SONYLIV_API, "SonyLiv"),
@@ -296,7 +269,6 @@ def main():
 
     results.sort(key=lambda x: datetime.strptime(x["Date & Time"], "%d-%m-%Y-%I:%M 00 %p"))
 
-    # JSON তৈরি
     gap = "\n" * 200
     json_output = json.dumps(results, ensure_ascii=False, indent=2)
     
