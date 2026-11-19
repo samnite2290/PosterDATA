@@ -17,7 +17,6 @@ TAPMAD_API = os.getenv("TAPMAD_API")
 DEFAULT_IMAGE = "https://raw.githubusercontent.com/samnite2290/img/gh-pages/HOME/HOME-LIVE-EVENT.png"
 SUBTITLE_SUFFIX = " | Select 🅻🅸🆅🅴 🆂🅿🅾🆁🆃🆂 Button, Share Our Apps With Your Friends & Family."
 
- 
 GITHUB_USER = "samnite2290"
 GITHUB_REPO = "PosterDATA" 
 GITHUB_BRANCH = "main"
@@ -145,7 +144,8 @@ def bst_str(dt):
     return dt.strftime("%d-%m-%Y-%I:%M 00 %p").lower()
 
 def calc_multiple_time(sport, fmt, start_bd):
-    if sport == "football": return start_bd + timedelta(minutes=60)
+    # ফুটবল: ৪৫ মিনিট + ১৫ মিনিট হাফটাইম + ৪৫ মিনিট + ইনজুরি টাইম = ১১০ মিনিট
+    if sport == "football": return start_bd + timedelta(minutes=110)
     if fmt == "T20": return start_bd + timedelta(minutes=105)
     if fmt == "T10": return start_bd + timedelta(minutes=55)
     if fmt == "ODI": return start_bd + timedelta(minutes=240)
@@ -163,7 +163,6 @@ def get_poster_link(t1, t2, sub_name, fmt, sport, start):
         match_type = fmt if fmt else ""
         
         create_poster(team1=t1, team2=t2, series_name=sub_name, match_type=match_type, output_filename=filename, sport_type=sport_type)
-        
         
         raw_link = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/posters/{filename}"
         return raw_link
