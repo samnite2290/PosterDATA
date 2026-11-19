@@ -59,7 +59,7 @@ CRICKET_LEAGUES = {
 
 POPULAR_KEYWORDS = ["bangladesh", "pakistan", "india", "bpl", "psl", "ipl", "world cup", "asia cup", "champions trophy", "premier league", "la liga", "champions league", "real madrid", "barcelona", "manchester", "liverpool", "arsenal", "chelsea", "bayern", "psg", "juventus", "brazil", "argentina", "kolkata", "mumbai", "chennai", "karachi", "lahore", "dhaka", "comilla", "brisbane", "sydney", "melbourne", "perth", "hobart", "women", "inter", "nations league", "afc", "awards", "formula", "golf", "sri lanka"]
 
-IGNORE_SPORTS = ["doubles", "atp", "wta", "tur", "turin", "day 1", "day 2", "day 3", "day 4", "race", "practice", "qualifying", "grand prix", "tennis", "golf", "georgia", "spain", "barcelona", "las vegas", "circuit", "round of 16"]
+IGNORE_SPORTS = ["doubles", "atp", "wta", "tur", "turin", "day 1", "day 2", "day 3", "day 4", "race", "practice", "qualifying", "grand prix", "tennis", "golf", "georgia", "las vegas", "circuit", "round of 16"]
 
 def format_team_name(name):
     formatted = name
@@ -70,7 +70,6 @@ def format_team_name(name):
 
 def fetch_json(url, headers=None):
     if not url: 
-        print("Warning: API URL is empty.")
         return []
     try:
         r = requests.get(url, headers=headers, timeout=30)
@@ -80,53 +79,34 @@ def fetch_json(url, headers=None):
         print(f"Error fetching from {url}: {e}")
         return []
 
-def _iter_events(data):
-    if isinstance(data, list): return data
-    if isinstance(data, dict):
-        for k in ("events", "data", "matches", "items", "results", "response", "Matches"):
-            v = data.get(k)
-            if isinstance(v, list): return v
-    return []
+def bst_str(dt):
+    return dt.strftime("%d-%m-%Y-%I:%M 00 %p").lower()
 
-def parse_start(ev):
-    if "startTime" in ev and isinstance(ev["startTime"], str):
-        try: return datetime.strptime(ev["startTime"], "%I:%M:%S %p %d-%m-%Y").replace(tzinfo=BD)
-        except: pass
-    if "eventInfo" in ev and "startTime" in ev["eventInfo"]:
-        try: return datetime.strptime(ev["eventInfo"]["startTime"], "%d/%m/%Y %I:%M:%S %p").replace(tzinfo=BD)
-        except: pass
-    if "EventStartDate" in ev:
-        try: return datetime.strptime(ev["EventStartDate"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=BD)
-        except: pass
-    return None
+def calc_multiple_time(sport, fmt, start_bd):
+    if sport == "football": return start_bd + timedelta(minutes=60) # 45m + 15m break
+    if fmt == "T20": return start_bd + timedelta(minutes=105)
+    if fmt == "T10": return start_bd + timedelta(minutes=55)
+    if fmt == "ODI": return start_bd + timedelta(minutes=240)
+    if fmt == "Test": return start_bd + timedelta(minutes=150) 
+    return start_bd + timedelta(minutes=60)
 
-def extract_teams(ev):
-    if "team_1" in ev and "team_2" in ev:
-        return str(ev["team_1"]).strip(), str(ev["team_2"]).strip()
-    if "eventInfo" in ev:
-        tA = ev["eventInfo"].get("teamA", "")
-        tB = ev["eventInfo"].get("teamB", "")
-        if tA and tB: return tA.strip(), tB.strip()
-    if "VideoName" in ev and " vs " in ev["VideoName"]:
-        parts = ev["VideoName"].split(" vs ")
-        if len(parts) >= 2: return parts[0].strip(), parts[1].strip()
-    return "", ""
-
-def extract_competition(ev):
-    if "CategoryName" in ev: return ev["CategoryName"]
-    if "event_name" in ev: return ev["event_name"]
-    if "eventInfo" in ev and "eventName" in ev["eventInfo"]: return ev["eventInfo"]["eventName"]
-    return ""
-
-def extract_channel(ev, default_channel):
-    if "streams" in ev and isinstance(ev["streams"], list) and len(ev["streams"]) > 0:
-        return ev["streams"][0].get("channel_name", default_channel)
-    keys = ("channel", "broadcaster", "platform", "channel_name", "broadcast", "network")
-    for k in keys:
-        v = ev.get(k)
-        if isinstance(v, str) and v.strip(): return v.strip()
-        if isinstance(v, list) and len(v) > 0 and isinstance(v[0], str): return v[0].strip()
-    return default_channel
+def get_poster_link(t1, t2, sub_name, fmt, sport, start):
+    try:
+        t1_safe = re.sub(r'[^a-zA-Z0-9]', '_', t1)
+        t2_safe = re.sub(r'[^a-zA-Z0-9]', '_', t2)
+        date_str = start.strftime("%Y%m%d")
+        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png" 
+        
+        sport_type = "Cricket" if sport == "cricket" else "Soccer"
+        match_type = fmt if fmt else ""
+        
+        create_poster(team1=t1, team2=t2, series_name=sub_name, match_type=match_type, output_filename=filename, sport_type=sport_type)
+        
+        raw_link = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/posters/{filename}"
+        return raw_link
+    except Exception as e:
+        print(f"Poster Error: {e}")
+        return None
 
 def detect_sport(ev, comp):
     s = (ev.get("sport") or ev.get("sportType") or ev.get("event_category") or ev.get("Category") or "").lower()
@@ -150,89 +130,30 @@ def league_meta(sport, comp):
         if key in c: return val
     return ("🏏 CRICKET 2026" if sport == "cricket" else "⚽ FOOTBALL 2026", "Fancode" if sport == "cricket" else "T Sports")
 
-def bst_str(dt):
-    return dt.strftime("%d-%m-%Y-%I:%M 00 %p").lower()
-
-def calc_multiple_time(sport, fmt, start_bd):
-    """
-    আপনার দেওয়া নিয়ম অনুযায়ী multipleTime হিসাব করা হচ্ছে।
-    """
-    if sport == "football": 
-        return start_bd + timedelta(minutes=60) # 45m + 15m break
-    if fmt == "T20": 
-        return start_bd + timedelta(minutes=105)
-    if fmt == "T10": 
-        return start_bd + timedelta(minutes=55)
-    if fmt == "ODI": 
-        return start_bd + timedelta(minutes=240)
-    if fmt == "Test": 
-        return start_bd + timedelta(minutes=150) # Lunch/Tea break approx
-    return start_bd + timedelta(minutes=60)
-
-def get_poster_link(t1, t2, sub_name, fmt, sport, start):
-    try:
-        t1_safe = re.sub(r'[^a-zA-Z0-9]', '_', t1)
-        t2_safe = re.sub(r'[^a-zA-Z0-9]', '_', t2)
-        date_str = start.strftime("%Y%m%d")
-        filename = f"{sport}_{t1_safe}_vs_{t2_safe}_{date_str}.png" 
-        
-        sport_type = "Cricket" if sport == "cricket" else "Soccer"
-        match_type = fmt if fmt else ""
-        
-        create_poster(team1=t1, team2=t2, series_name=sub_name, match_type=match_type, output_filename=filename, sport_type=sport_type)
-        
-        raw_link = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/posters/{filename}"
-        return raw_link
-    except Exception as e:
-        print(f"Poster Error: {e}")
-        return None
-
-def is_popular_and_valid(t1, t2, comp):
-    full_text = f"{t1} {t2} {comp}".lower()
-    if "tbc" in t1.lower() or "tbc" in t2.lower(): return False
-    for word in IGNORE_SPORTS:
-        if word in full_text: return False
-    for keyword in POPULAR_KEYWORDS:
-        if keyword in full_text: return True
-    return False
-
-def build_entry(ev, platform_tag):
-    start = parse_start(ev)
-    if not start: return None
-        
-    status = (ev.get("status") or ev.get("Status") or "").lower()
-    if status == "live" and NOW_BD > start:
-        start = NOW_BD + timedelta(minutes=20)
-        
-    if not (NOW_BD <= start <= END_DATE): 
-        return None 
-        
-    t1, t2 = extract_teams(ev)
+def build_entry(start, t1, t2, comp, channel, api_image=None):
     if not t1 or not t2: return None
+    if not start: return None
 
-    comp = extract_competition(ev)
-    if not is_popular_and_valid(t1, t2, comp): return None
-
-    sport = detect_sport(ev, comp)
+    # স্পোর্টস ডিটেক্ট
+    sport = "cricket" if "cricket" in comp.lower() or any(x in comp.lower() for x in ("t20", "t10", "odi", "test", "ipl")) else "football"
     sub_name, default_channel = league_meta(sport, comp)
-    channel = extract_channel(ev, default_channel)
+    if not channel or channel == "":
+        channel = default_channel
     fmt = guess_format(comp) if sport == "cricket" else ""
 
     t1_fmt = format_team_name(t1)
     t2_fmt = format_team_name(t2)
     title = f"{t1_fmt} 🆚 {t2_fmt} । Watch on {channel}"
-    
-    # Subtitle-এ আপনার দেওয়া টেক্সট যোগ করা হচ্ছে
     subtitle = f"{sub_name}{SUBTITLE_SUFFIX}"
     
-    # পোস্টার তৈরি (যদি না হয় তবে ডিফল্ট)
+    # পোস্টার সবসময় জেনারেট হবে
     poster_url = get_poster_link(t1, t2, sub_name, fmt, sport, start)
-    image = poster_url if poster_url else DEFAULT_IMAGE
     
-    # Date & Time ম্যাচ শুরু হওয়ার ৫ মিনিট আগে
+    # ইমেজ সিলেকশন: API তে থাকলে API এর ইমেজ, না থাকলে আমাদের পোস্টার
+    image = api_image if api_image else (poster_url if poster_url else DEFAULT_IMAGE)
+    
     date_time = bst_str(start - timedelta(minutes=5))
 
-    # important লীগ হলে multipleTimeRun On হবে, নয়তো Off
     is_important = any(k in comp.lower() for k in IMPORTANT_LEAGUES) or any(k in channel.lower() for k in ["sonyliv", "fancode", "tapmad"])
     multiple_on = "On" if is_important else "Off"
     
@@ -250,44 +171,131 @@ def build_entry(ev, platform_tag):
         "Image": image,
     }
 
-def main():
-    results, seen = [], set()
-    
-    broadcast_sources = [
-        ("fancode", FANCEODE_API, "Fancode"),
-        ("sonyliv", SONYLIV_API, "SonyLiv"),
-        ("tapmad",  TAPMAD_API, "Tapmad"),
-        ("sports1", SPORTS1_API, "Sports1")
-    ]
-    
-    for name, url, tag in broadcast_sources:
-        if not url: 
-            print(f"Warning: {name} API URL is not set in secrets. Skipping...")
+def process_fancode_api(data):
+    entries = []
+    for ev in data.get("matches", []):
+        status = ev.get("status", "").lower()
+        try:
+            start = datetime.strptime(ev["startTime"], "%I:%M:%S %p %d-%m-%Y").replace(tzinfo=BD)
+        except:
             continue
-        events = _iter_events(fetch_json(url))
-        print(f"Found {len(events)} events from {name}")
-        
-        for ev in events:
-            try:
-                entry = build_entry(ev, tag)
-                if entry:
-                    key = (entry["Title"], entry["Date & Time"])
-                    if key not in seen:
-                        seen.add(key)
-                        results.append(entry)
-                        print(f"Added: {entry['Title']}")
-            except Exception as e:
-                print(f"Error processing event: {e}")
+            
+        # লাইভ ম্যাচ টাইম অ্যাডজাস্টমেন্ট (ক্রিকেটের জন্য ২ ঘন্টা পর)
+        if status == "live" and NOW_BD > start + timedelta(hours=2):
+            start = NOW_BD + timedelta(minutes=20)
+            
+        if status == "upcoming" and start > END_DATE:
+            continue
 
-    results.sort(key=lambda x: datetime.strptime(x["Date & Time"], "%d-%m-%Y-%I:%M 00 %p"))
+        t1, t2 = ev.get("team_1", ""), ev.get("team_2", "")
+        comp = ev.get("event_name", "")
+        channel = "Fancode"
+        api_image = ev.get("src")
+        
+        entry = build_entry(start, t1, t2, comp, channel, api_image)
+        if entry: entries.append(entry)
+    return entries
+
+def process_tapmad_api(data):
+    entries = []
+    for ev in data.get("Matches", []):
+        status = ev.get("Status", "").lower()
+        try:
+            start = datetime.strptime(ev["EventStartDate"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=BD)
+        except:
+            continue
+            
+        if status == "live" and NOW_BD > start + timedelta(hours=2):
+            start = NOW_BD + timedelta(minutes=20)
+            
+        if status == "upcoming" and start > END_DATE:
+            continue
+
+        video_name = ev.get("VideoName", "")
+        if " vs " in video_name:
+            t1, t2 = video_name.split(" vs ", 1)
+        else:
+            t1, t2 = video_name, video_name
+            
+        comp = ev.get("CategoryName", "")
+        channel = "Tapmad"
+        api_image = ev.get("ThumbnailStandard")
+        
+        entry = build_entry(start, t1.strip(), t2.strip(), comp, channel, api_image)
+        if entry: entries.append(entry)
+    return entries
+
+def process_sports1_api(data):
+    entries = []
+    # Sports1 API ডাটা লিস্ট বা ডিকশনারি হতে পারে
+    events = data if isinstance(data, list) else data.get("events", [])
+    
+    for ev in events:
+        status = ev.get("status", "").lower()
+        info = ev.get("eventInfo", {})
+        try:
+            start = datetime.strptime(info["startTime"], "%d/%m/%Y %I:%M:%S %p").replace(tzinfo=BD)
+        except:
+            continue
+            
+        if status == "live" and NOW_BD > start + timedelta(hours=2):
+            start = NOW_BD + timedelta(minutes=20)
+            
+        if status == "upcoming" and start > END_DATE:
+            continue
+
+        t1 = info.get("teamA", "")
+        t2 = info.get("teamB", "")
+        comp = ev.get("Category", "") or info.get("eventName", "")
+        
+        # চ্যানেল নেম বের করা
+        streams = ev.get("streams", [])
+        channel = streams[0].get("channel_name", "Sports") if streams else "Sports"
+        
+        # নির্দেশনা অনুযায়ী SPORTS1_API থেকে কোনো ইমেজ নেওয়া হবে না
+        api_image = None
+        
+        entry = build_entry(start, t1, t2, comp, channel, api_image)
+        if entry: entries.append(entry)
+    return entries
+
+
+def main():
+    all_results = []
+    
+    # ১. Fancode
+    if FANCEODE_API:
+        data = fetch_json(FANCEODE_API)
+        all_results.extend(process_fancode_api(data))
+        
+    # ২. Tapmad
+    if TAPMAD_API:
+        data = fetch_json(TAPMAD_API)
+        all_results.extend(process_tapmad_api(data))
+        
+    # ৩. Sports1
+    if SPORTS1_API:
+        data = fetch_json(SPORTS1_API)
+        all_results.extend(process_sports1_api(data))
+
+    # ডুপ্লিকেট রিমুভ এবং সর্টিং
+    seen = set()
+    unique_results = []
+    for entry in all_results:
+        key = (entry["Title"], entry["Date & Time"])
+        if key not in seen:
+            seen.add(key)
+            unique_results.append(entry)
+            
+    unique_results.sort(key=lambda x: datetime.strptime(x["Date & Time"], "%d-%m-%Y-%I:%M 00 %p"))
 
     gap = "\n" * 200
-    json_output = json.dumps(results, ensure_ascii=False, indent=2)
+    json_output = json.dumps(unique_results, ensure_ascii=False, indent=2)
     
     with open("notifications.json", "w", encoding="utf-8") as f:
         f.write("[\n" + gap + json_output[1:])
         
-    print(f"Generated notifications.json with {len(results)} entries.", flush=True)
+    print(f"Generated notifications.json with {len(unique_results)} entries.", flush=True)
 
 if __name__ == "__main__":
     main()
